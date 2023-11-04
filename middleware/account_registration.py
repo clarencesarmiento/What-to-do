@@ -35,8 +35,8 @@ class AccountRegistration:
         try:
             email_info = validate_email(email, check_deliverability=True)
             email = email_info.normalized
-        except EmailNotValidError as e:
-            raise ValueError(e)
+        except EmailNotValidError:
+            raise ValueError('Email is invalid.')
 
         self._email = email
 

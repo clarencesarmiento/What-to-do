@@ -56,7 +56,7 @@ def test_email():
     with pytest.raises(ValueError) as e:
         for test in invalid_test_input:
             acc_registration.email = test
-            assert str(e.value) == e
+            assert str(e.value) == 'Email is invalid.'
 
 
 def test_password():
