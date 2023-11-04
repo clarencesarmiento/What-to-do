@@ -3,6 +3,8 @@ import customtkinter as ctk
 from PIL import Image
 import os
 
+from middleware.account_registration import AccountRegistration
+
 ctk.set_appearance_mode('system')
 ctk.set_default_color_theme('blue')
 
@@ -16,7 +18,9 @@ asset_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Assets')
 text_primary = '#1E1E1E'
 text_secondary = '#F5F5F5'
 button_default = '#0E89CB'
+button_secondary = '#E8E8E8'
 button_hover = '#08527A'
+button_secondary_hover = '#8B8B8B'
 widget_color = '#B5CBD7'
 
 # Define Font Styles
@@ -24,21 +28,41 @@ font_heading = ('montserrat', 24, 'bold')
 font_subheading = ('montserrat', 16, 'bold')
 font_body_16 = ('montserrat', 16)
 font_body_14 = ('montserrat', 14)
+font_error = ('montserrat', 12)
 
 # Load Image Icons
 show_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'show-outline.png')),
                          size=(20, 20))
 hide_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'hide-outline.png')),
                          size=(20, 20))
+error_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'error.png')),
+                          size=(20, 20))
+check_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'check.png')),
+                          size=(20, 20))
+profile_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'profile.png')),
+                            size=(20, 20))
+email_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'email.png')),
+                          size=(20, 20))
+password_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'key.png')),
+                             size=(20, 20))
 
 
 def create_button(master, text, command, width=140):
     button = ctk.CTkButton(master, text=text, text_color=text_secondary, height=35, width=width,
-                           font=font_subheading, corner_radius=18, fg_color=button_default,
-                           command=command)
+                           font=font_body_16, corner_radius=18, fg_color=button_default,
+                           hover_color=button_hover, command=command)
 
-    button.bind('<Enter>', lambda event: button_hover_event(button))
-    button.bind('<Leave>', lambda event: button_default_event(button))
+    # button.bind('<Enter>', lambda event: button_hover_event(button))
+    # button.bind('<Leave>', lambda event: button_default_event(button))
+    # button.bind('<Button-1>', lambda event: button_click_event(button, command))
+
+    return button
+
+
+def create_secondary_button(master, text, command, width=140):
+    button = ctk.CTkButton(master, text=text, text_color=text_primary, height=35, width=width,
+                           font=font_body_16, corner_radius=18, fg_color=button_secondary,
+                           hover_color=button_secondary_hover, command=command)
 
     return button
 
@@ -53,12 +77,11 @@ def button_hover_event(button):
                      border_width=1, border_color=button_hover)
 
 
-def button_click_event(button):
-    button.configure(text_color=text_secondary, fg_color=button_hover,
-                     border_width=1)
+def button_click_event(button, command):
+    button.configure(text_color=text_secondary, fg_color=button_hover, command=command)
 
 
-def create_entry_widget(master, text, icon=None, show=''):
+def create_entry_widget(master, text, icon=None, valid_icon=None, show='', validate_command=None):
     frame = ctk.CTkFrame(master, fg_color=widget_color, corner_radius=18)
     frame.columnconfigure(0, weight=1)
 
@@ -66,23 +89,32 @@ def create_entry_widget(master, text, icon=None, show=''):
                          fg_color='transparent',
                          text_color=text_primary, font=font_body_16,
                          justify='center', border_width=0, corner_radius=0,
-                         show=show)
+                         show=show, validatecommand=validate_command, validate='focusout')
     entry.grid(row=0, column=0, columnspan=2, padx=10, pady=3, sticky='nsew')
 
+    valid_icon_label = ctk.CTkLabel(frame, text='', image=valid_icon)
+    valid_icon_label.grid(row=0, column=0, padx=15, sticky='w')
+
     icon_label = ctk.CTkLabel(frame, text='', image=icon, cursor='hand2')
-    icon_label.grid(row=0, column=0, padx=15, sticky='e')
+    icon_label.grid(row=0, column=1, padx=15, sticky='e')
 
     return frame
+
+
+def create_error_label(master):
+    error_label = ctk.CTkLabel(master, text='', text_color='#F84B4B', font=font_error)
+
+    return error_label
 
 
 def password_toggle(widget, state):
     if not state:
         widget.winfo_children()[0].configure(show='')
-        widget.winfo_children()[1].configure(image=hide_icon)
+        widget.winfo_children()[2].configure(image=hide_icon)
         return True
     else:
         widget.winfo_children()[0].configure(show='•')
-        widget.winfo_children()[1].configure(image=show_icon)
+        widget.winfo_children()[2].configure(image=show_icon)
         return False
 
 
@@ -139,7 +171,7 @@ class App(ctk.CTk):
                                         switch_to_register_frame=lambda event: self.register_label_event())
 
         self.change_password_frame = ChangePasswordFrame(self.frame, fg_color='transparent', corner_radius=0,
-                                                         back_button_command=self.back_button_event)
+                                                         cancel_button_command=self.cancel_button_event)
 
         self.register_frame = RegisterFrame(self.frame, fg_color='transparent', corner_radius=0,
                                             switch_to_signin=lambda event: self.sign_in_label_event())
@@ -152,7 +184,7 @@ class App(ctk.CTk):
         self.signin_frame.grid_forget()
         self.change_password_frame.grid(row=0, column=1, sticky='nsew')
 
-    def back_button_event(self):
+    def cancel_button_event(self):
         self.change_password_frame.grid_forget()
         self.signin_frame.grid(row=0, column=1, sticky='nsew')
 
@@ -197,24 +229,30 @@ class SignInFrame(ctk.CTkFrame):
 
         self.subheading_label = ctk.CTkLabel(self, text='Welcome Back, User !!',
                                              text_color=text_primary, font=font_subheading)
-        self.subheading_label.grid(row=0, column=0, padx=10, pady=(100, 0), sticky='ew')
+        self.subheading_label.grid(row=0, column=0, padx=10, pady=(75, 0), sticky='ew')
 
-        self.email_entry = create_entry_widget(self, text='Enter your Email')
-        self.email_entry.grid(row=1, column=0, padx=20, pady=32, sticky='ew')
+        self.email_error_label = create_error_label(self)
+        self.email_error_label.grid(row=1, column=0, padx=20, pady=(16, 0), sticky='w')
+
+        self.email_entry = create_entry_widget(self, text='Enter your Email', valid_icon=email_icon)
+        self.email_entry.grid(row=2, column=0, padx=20, sticky='ew')
+
+        self.password_error_label = create_error_label(self)
+        self.password_error_label.grid(row=3, column=0, padx=20, pady=(16, 0), sticky='w')
 
         self.password_entry = create_entry_widget(self, text='Enter your Password', show='•',
-                                                  icon=show_icon)
-        self.password_entry.grid(row=2, column=0, padx=20, sticky='ew')
+                                                  icon=show_icon, valid_icon=password_icon)
+        self.password_entry.grid(row=4, column=0, padx=20, sticky='ew')
 
         self.forgot_pass_label = ctk.CTkLabel(self, text='Forgot password?', text_color=button_hover,
                                               font=font_body_14, cursor='hand2')
-        self.forgot_pass_label.grid(row=3, column=0, padx=20, pady=5, sticky='e')
+        self.forgot_pass_label.grid(row=5, column=0, padx=20, pady=(5, 0), sticky='e')
 
         self.sign_in_button = create_button(self, text='Sign in', command=self.sign_in_button_event, width=100)
-        self.sign_in_button.grid(row=4, column=0, padx=20, pady=10, )
+        self.sign_in_button.grid(row=6, column=0, padx=20, pady=15)
 
         self.switch_to_register = have_account(self, label="Don't have an account?", text='Register')
-        self.switch_to_register.grid(row=5, column=0, padx=20, pady=5, sticky='ew')
+        self.switch_to_register.grid(row=7, column=0, padx=20, sticky='ew')
 
         # Event Binding
         self.password_entry.winfo_children()[1].bind('<Button-1>', lambda event: self.password_toggle())
@@ -235,15 +273,18 @@ class SignInFrame(ctk.CTkFrame):
         self.email_entry.winfo_children()[0].delete(0, 'end')
         self.password_entry.winfo_children()[0].delete(0, 'end')
 
+        self.email_entry.winfo_children()[1].configure(image=profile_icon)
+        self.password_entry.winfo_children()[1].configure(image=password_icon)
+
     def sign_in_button_event(self):
         print(self.get_entry_data())
         self.clear_entry()
 
 
 class ChangePasswordFrame(ctk.CTkFrame):
-    def __init__(self, master, back_button_command, **kwargs):
+    def __init__(self, master, cancel_button_command, **kwargs):
         super().__init__(master, **kwargs)
-        self.back_button_command = back_button_command
+        self.cancel_button_command = cancel_button_command
         self.old_show_password = False
         self.new_show_password = False
 
@@ -252,22 +293,33 @@ class ChangePasswordFrame(ctk.CTkFrame):
 
         self.subheading_label = ctk.CTkLabel(self, text='Oh no, you forgot your password?',
                                              text_color=text_primary, font=font_subheading)
-        self.subheading_label.grid(row=0, column=0, padx=10, pady=(100, 0), sticky='ew')
+        self.subheading_label.grid(row=0, column=0, padx=10, pady=(75, 0), sticky='ew')
 
-        self.email_entry = create_entry_widget(self, text='Enter your Email')
-        self.email_entry.grid(row=1, column=0, padx=20, pady=32, sticky='ew')
+        self.email_error_label = create_error_label(self)
+        self.email_error_label.grid(row=1, column=0, padx=20, pady=(16, 0), sticky='w')
 
-        self.old_password_entry = create_entry_widget(self, text='Enter Old Password', show='•', icon=show_icon)
-        self.old_password_entry.grid(row=2, column=0, padx=20, sticky='ew')
+        self.email_entry = create_entry_widget(self, text='Enter your Email', valid_icon=email_icon)
+        self.email_entry.grid(row=2, column=0, padx=20, sticky='ew')
 
-        self.new_password_entry = create_entry_widget(self, text='Enter New Password', show='•', icon=show_icon)
-        self.new_password_entry.grid(row=3, column=0, padx=20, pady=32, sticky='ew')
+        self.old_pass_error_label = create_error_label(self)
+        self.old_pass_error_label.grid(row=3, column=0, padx=20, pady=(16, 0), sticky='w')
 
-        self.back_button = create_button(self, text='Back', command=self.back_button_command, width=80)
-        self.back_button.grid(row=4, column=0, padx=20, sticky='w')
+        self.old_password_entry = create_entry_widget(self, text='Enter Old Password', show='•', icon=show_icon,
+                                                      valid_icon=password_icon)
+        self.old_password_entry.grid(row=4, column=0, padx=20, sticky='ew')
 
-        self.change_pass_button = create_button(self, text='Change Password', command=None)
-        self.change_pass_button.grid(row=4, column=0, padx=20, sticky='e')
+        self.new_pass_error_label = create_error_label(self)
+        self.new_pass_error_label.grid(row=5, column=0, padx=20, pady=(16, 0), sticky='w')
+
+        self.new_password_entry = create_entry_widget(self, text='Enter New Password', show='•', icon=show_icon,
+                                                      valid_icon=password_icon)
+        self.new_password_entry.grid(row=6, column=0, padx=20, sticky='ew')
+
+        self.cancel_button = create_secondary_button(self, text='Cancel', command=self.cancel_button_command, width=80)
+        self.cancel_button.grid(row=7, column=0, padx=20, pady=20, sticky='w')
+
+        self.change_pass_button = create_button(self, text='Change Password', command=self.change_pass_button_event)
+        self.change_pass_button.grid(row=7, column=0, padx=20, pady=20, sticky='e')
 
         # Event Binding
         self.old_password_entry.winfo_children()[1].bind('<Button-1>', lambda event: self.old_password_toggle())
@@ -292,6 +344,10 @@ class ChangePasswordFrame(ctk.CTkFrame):
         self.old_password_entry.winfo_children()[0].delete(0, 'end')
         self.new_password_entry.winfo_children()[0].delete(0, 'end')
 
+        self.email_entry.winfo_children()[1].configure(image=email_icon)
+        self.old_password_entry.winfo_children()[1].configure(image=password_icon)
+        self.new_password_entry.winfo_children()[1].configure(image=password_icon)
+
     def change_pass_button_event(self):
         print(self.get_entry_data())
         self.clear_entry()
@@ -300,6 +356,7 @@ class ChangePasswordFrame(ctk.CTkFrame):
 class RegisterFrame(ctk.CTkFrame):
     def __init__(self, master, switch_to_signin, **kwargs):
         super().__init__(master, **kwargs)
+        self.acc_registration = AccountRegistration()
         self.switch_to_command = switch_to_signin
         self.show_password = False
 
@@ -308,27 +365,73 @@ class RegisterFrame(ctk.CTkFrame):
 
         self.subheading_label = ctk.CTkLabel(self, text='Welcome onboard !!',
                                              text_color=text_primary, font=font_subheading)
-        self.subheading_label.grid(row=0, column=0, padx=10, pady=(100, 0), sticky='ew')
+        self.subheading_label.grid(row=0, column=0, padx=10, pady=(75, 0), sticky='ew')
 
-        self.fullname_entry = create_entry_widget(self, text='Enter your Fullname')
-        self.fullname_entry.grid(row=1, column=0, padx=20, pady=32, sticky='ew')
+        self.fullname_error_label = create_error_label(self)
+        self.fullname_error_label.grid(row=1, column=0, padx=20, pady=(16, 0), sticky='w')
 
-        self.email_entry = create_entry_widget(self, text='Enter your Email')
-        self.email_entry.grid(row=2, column=0, padx=20, sticky='ew')
+        self.fullname_entry = create_entry_widget(self, text='Enter your Fullname', valid_icon=profile_icon,
+                                                  validate_command=self.name_validation)
+        self.fullname_entry.grid(row=2, column=0, padx=20, sticky='ew')
 
-        self.password_entry = create_entry_widget(self, text='Enter your Password', show='•', icon=show_icon)
-        self.password_entry.grid(row=3, column=0, padx=20, pady=32, sticky='ew')
+        self.email_error_label = create_error_label(self)
+        self.email_error_label.grid(row=3, column=0, padx=20, pady=(14, 0), sticky='w')
 
-        self.register_button = create_button(self, text='Register', command=None, width=100, )
-        self.register_button.grid(row=4, column=0, padx=20, )
+        self.email_entry = create_entry_widget(self, text='Enter your Email', valid_icon=email_icon,
+                                               validate_command=self.email_validation)
+        self.email_entry.grid(row=4, column=0, padx=20, sticky='ew')
+
+        self.password_error_label = create_error_label(self)
+        self.password_error_label.grid(row=5, column=0, padx=20, pady=(14, 0), sticky='w')
+
+        self.password_entry = create_entry_widget(self, text='Enter your Password', show='•', icon=show_icon,
+                                                  valid_icon=password_icon,
+                                                  validate_command=self.password_validation)
+        self.password_entry.grid(row=6, column=0, padx=20, sticky='ew')
+
+        self.register_button = create_button(self, text='Register', command=self.register_button_event, width=100, )
+        self.register_button.grid(row=7, column=0, padx=20, pady=20)
 
         self.switch_to_signin = have_account(self, label='Already have an account?', text='Sign in')
-        self.switch_to_signin.grid(row=5, column=0, padx=20, pady=15, sticky='ew')
+        self.switch_to_signin.grid(row=8, column=0, padx=20, sticky='ew')
 
         # Event Binding
-        self.password_entry.winfo_children()[1].bind('<Button-1>', lambda event: self.password_toggle())
+        self.password_entry.winfo_children()[2].bind('<Button-1>', lambda event: self.password_toggle())
         self.switch_to_signin.winfo_children()[1].bind('<Button-1>', self.switch_to_command)
         self.register_button.bind('<Return>', lambda event: self.register_button_event())
+
+    def name_validation(self):
+        try:
+            self.acc_registration.fullname = self.get_entry_data()[0]
+            self.fullname_error_label.configure(text='')
+            self.fullname_entry.winfo_children()[1].configure(image=check_icon)
+            return True
+        except ValueError as e:
+            self.fullname_error_label.configure(text=e)
+            self.fullname_entry.winfo_children()[1].configure(image=error_icon)
+            return False
+
+    def email_validation(self):
+        try:
+            self.acc_registration.email = self.get_entry_data()[1]
+            self.email_error_label.configure(text='')
+            self.email_entry.winfo_children()[1].configure(image=check_icon)
+            return True
+        except ValueError as e:
+            self.email_error_label.configure(text=e)
+            self.email_entry.winfo_children()[1].configure(image=error_icon)
+            return False
+
+    def password_validation(self):
+        try:
+            self.acc_registration.password = self.get_entry_data()[2]
+            self.password_error_label.configure(text='')
+            self.password_entry.winfo_children()[1].configure(image=check_icon)
+            return True
+        except ValueError as e:
+            self.password_error_label.configure(text=e)
+            self.password_entry.winfo_children()[1].configure(image=error_icon)
+            return False
 
     def password_toggle(self):
         self.show_password = password_toggle(self.password_entry, self.show_password)
@@ -345,8 +448,24 @@ class RegisterFrame(ctk.CTkFrame):
         self.email_entry.winfo_children()[0].delete(0, 'end')
         self.password_entry.winfo_children()[0].delete(0, 'end')
 
+        self.fullname_entry.winfo_children()[1].configure(image=profile_icon)
+        self.email_entry.winfo_children()[1].configure(image=email_icon)
+        self.password_entry.winfo_children()[1].configure(image=password_icon)
+
+    def validations(self):
+        fullname_is_valid = self.name_validation()
+        email_is_valid = self.email_validation()
+        password_is_valid = self.password_validation()
+
+        if fullname_is_valid and email_is_valid and password_is_valid:
+            return self.acc_registration.fullname, self.acc_registration.email, self.acc_registration.password
+
     def register_button_event(self):
-        print(self.get_entry_data())
+        # self.register_button.configure(text_color=text_secondary)
+        all_is_valid = self.validations()
+        if all_is_valid is not None:
+            print(self.validations())
+
         self.clear_entry()
 
 
