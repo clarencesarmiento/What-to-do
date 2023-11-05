@@ -1,4 +1,4 @@
-from middleware.account_registration import AccountRegistration
+from middleware.account import AccountRegistration
 import pytest
 
 
