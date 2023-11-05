@@ -2,8 +2,11 @@ from tkinter import *
 import customtkinter as ctk
 from PIL import Image
 import os
+from CTkMessagebox import CTkMessagebox
 
-from middleware.account_registration import AccountRegistration
+from backend.exceptions import *
+from backend.app_backend import register_account, get_name, signin_account
+from middleware.account import AccountRegistration, AccountSignIn
 
 ctk.set_appearance_mode('system')
 ctk.set_default_color_theme('blue')
@@ -35,10 +38,12 @@ show_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'show-outline.png')
                          size=(20, 20))
 hide_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'hide-outline.png')),
                          size=(20, 20))
+
 error_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'error.png')),
                           size=(20, 20))
 check_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'check.png')),
                           size=(20, 20))
+
 profile_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'profile.png')),
                             size=(20, 20))
 email_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'email.png')),
@@ -223,6 +228,7 @@ class SignInFrame(ctk.CTkFrame):
         self.forgot_pass_command = forgot_password_command
         self.switch_to_command = switch_to_register_frame
         self.show_password = False
+        self.acc_signin = AccountSignIn()
 
         # Configure frame grid layout
         self.columnconfigure(0, weight=1)
@@ -234,14 +240,16 @@ class SignInFrame(ctk.CTkFrame):
         self.email_error_label = create_error_label(self)
         self.email_error_label.grid(row=1, column=0, padx=20, pady=(16, 0), sticky='w')
 
-        self.email_entry = create_entry_widget(self, text='Enter your Email', valid_icon=email_icon)
+        self.email_entry = create_entry_widget(self, text='Enter your Email', valid_icon=email_icon,
+                                               validate_command=self.email_validation)
         self.email_entry.grid(row=2, column=0, padx=20, sticky='ew')
 
         self.password_error_label = create_error_label(self)
         self.password_error_label.grid(row=3, column=0, padx=20, pady=(16, 0), sticky='w')
 
         self.password_entry = create_entry_widget(self, text='Enter your Password', show='•',
-                                                  icon=show_icon, valid_icon=password_icon)
+                                                  icon=show_icon, valid_icon=password_icon,
+                                                  validate_command=self.password_validation)
         self.password_entry.grid(row=4, column=0, padx=20, sticky='ew')
 
         self.forgot_pass_label = ctk.CTkLabel(self, text='Forgot password?', text_color=button_hover,
@@ -255,10 +263,35 @@ class SignInFrame(ctk.CTkFrame):
         self.switch_to_register.grid(row=7, column=0, padx=20, sticky='ew')
 
         # Event Binding
-        self.password_entry.winfo_children()[1].bind('<Button-1>', lambda event: self.password_toggle())
+        self.password_entry.winfo_children()[2].bind('<Button-1>', lambda event: self.password_toggle())
         self.forgot_pass_label.bind('<Button-1>', self.forgot_pass_command)
         self.switch_to_register.winfo_children()[1].bind('<Button-1>', self.switch_to_command)
         self.sign_in_button.bind('<Return>', lambda event: self.sign_in_button_event())
+
+    def email_validation(self):
+        try:
+            self.acc_signin.email = self.get_entry_data()[0]
+            name = get_name(self.acc_signin.email)
+            self.subheading_label.configure(text=f'Welcome Back, {name} !!')
+            self.email_error_label.configure(text='')
+            self.email_entry.winfo_children()[1].configure(image=check_icon)
+            return True
+        except ValueError as e:
+            self.subheading_label.configure(text='Welcome Back, User !!')
+            self.email_error_label.configure(text=e)
+            self.email_entry.winfo_children()[1].configure(image=error_icon)
+            return False
+
+    def password_validation(self):
+        try:
+            self.acc_signin.password = self.get_entry_data()[1]
+            self.password_error_label.configure(text='')
+            self.password_entry.winfo_children()[1].configure(image=check_icon)
+            return True
+        except ValueError as e:
+            self.password_error_label.configure(text=e)
+            self.password_entry.winfo_children()[1].configure(image=error_icon)
+            return False
 
     def password_toggle(self):
         self.show_password = password_toggle(self.password_entry, self.show_password)
@@ -276,9 +309,25 @@ class SignInFrame(ctk.CTkFrame):
         self.email_entry.winfo_children()[1].configure(image=profile_icon)
         self.password_entry.winfo_children()[1].configure(image=password_icon)
 
+    def validations(self):
+        email_is_valid = self.email_validation()
+        password_is_valid = self.password_validation()
+
+        if email_is_valid and password_is_valid:
+            return self.acc_signin
+
     def sign_in_button_event(self):
-        print(self.get_entry_data())
-        self.clear_entry()
+        creds = self.validations()
+        if creds is not None:
+            try:
+                result = signin_account(creds)
+                self.clear_entry()
+                if result is not None:
+                    CTkMessagebox(title='Account Sign In', message='Sign In Successfully', icon='info', font=font_body_14)
+            except EmailNotFound as e:
+                CTkMessagebox(title='Account Sign In', message=str(e), icon='cancel', font=font_body_14)
+            except WrongPassword as e:
+                CTkMessagebox(title='Account Sign In', message=str(e), icon='cancel', font=font_body_14)
 
 
 class ChangePasswordFrame(ctk.CTkFrame):
@@ -458,15 +507,16 @@ class RegisterFrame(ctk.CTkFrame):
         password_is_valid = self.password_validation()
 
         if fullname_is_valid and email_is_valid and password_is_valid:
-            return self.acc_registration.fullname, self.acc_registration.email, self.acc_registration.password
+            return self.acc_registration
 
     def register_button_event(self):
-        # self.register_button.configure(text_color=text_secondary)
-        all_is_valid = self.validations()
-        if all_is_valid is not None:
-            print(self.validations())
-
-        self.clear_entry()
+        creds = self.validations()
+        try:
+            if creds is not None:
+                register_account(creds)
+                self.clear_entry()
+        except AccountExistsError as e:
+            CTkMessagebox(title='Account Registration', message=str(e), icon='cancel', font=font_body_14)
 
 
 if __name__ == '__main__':
