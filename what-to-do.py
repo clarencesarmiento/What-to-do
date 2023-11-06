@@ -5,8 +5,8 @@ import os
 from CTkMessagebox import CTkMessagebox
 
 from backend.exceptions import *
-from backend.app_backend import register_account, get_name, signin_account
-from middleware.account import AccountRegistration, AccountSignIn
+from backend.app_backend import register_account, get_name, signin_account, change_password
+from middleware.account import AccountRegistration, AccountSignIn, ChangePassword
 
 ctk.set_appearance_mode('system')
 ctk.set_default_color_theme('blue')
@@ -323,7 +323,10 @@ class SignInFrame(ctk.CTkFrame):
                 result = signin_account(creds)
                 self.clear_entry()
                 if result is not None:
-                    CTkMessagebox(title='Account Sign In', message='Sign In Successfully', icon='info', font=font_body_14)
+                    CTkMessagebox(title='Account Sign In', message='Sign In Successfully', icon='info',
+                                  font=font_body_14)
+                    task_table_name = f'usertasks_{result[0]}'
+                    print(task_table_name)
             except EmailNotFound as e:
                 CTkMessagebox(title='Account Sign In', message=str(e), icon='cancel', font=font_body_14)
             except WrongPassword as e:
@@ -334,6 +337,7 @@ class ChangePasswordFrame(ctk.CTkFrame):
     def __init__(self, master, cancel_button_command, **kwargs):
         super().__init__(master, **kwargs)
         self.cancel_button_command = cancel_button_command
+        self.change_pass = ChangePassword()
         self.old_show_password = False
         self.new_show_password = False
 
@@ -347,21 +351,24 @@ class ChangePasswordFrame(ctk.CTkFrame):
         self.email_error_label = create_error_label(self)
         self.email_error_label.grid(row=1, column=0, padx=20, pady=(16, 0), sticky='w')
 
-        self.email_entry = create_entry_widget(self, text='Enter your Email', valid_icon=email_icon)
+        self.email_entry = create_entry_widget(self, text='Enter your Email', valid_icon=email_icon,
+                                               validate_command=self.email_validation)
         self.email_entry.grid(row=2, column=0, padx=20, sticky='ew')
 
         self.old_pass_error_label = create_error_label(self)
         self.old_pass_error_label.grid(row=3, column=0, padx=20, pady=(16, 0), sticky='w')
 
         self.old_password_entry = create_entry_widget(self, text='Enter Old Password', show='•', icon=show_icon,
-                                                      valid_icon=password_icon)
+                                                      valid_icon=password_icon,
+                                                      validate_command=self.old_password_validation)
         self.old_password_entry.grid(row=4, column=0, padx=20, sticky='ew')
 
         self.new_pass_error_label = create_error_label(self)
         self.new_pass_error_label.grid(row=5, column=0, padx=20, pady=(16, 0), sticky='w')
 
         self.new_password_entry = create_entry_widget(self, text='Enter New Password', show='•', icon=show_icon,
-                                                      valid_icon=password_icon)
+                                                      valid_icon=password_icon,
+                                                      validate_command=self.new_password_validation)
         self.new_password_entry.grid(row=6, column=0, padx=20, sticky='ew')
 
         self.cancel_button = create_secondary_button(self, text='Cancel', command=self.cancel_button_command, width=80)
@@ -371,9 +378,42 @@ class ChangePasswordFrame(ctk.CTkFrame):
         self.change_pass_button.grid(row=7, column=0, padx=20, pady=20, sticky='e')
 
         # Event Binding
-        self.old_password_entry.winfo_children()[1].bind('<Button-1>', lambda event: self.old_password_toggle())
-        self.new_password_entry.winfo_children()[1].bind('<Button-1>', lambda event: self.new_password_toggle())
+        self.old_password_entry.winfo_children()[2].bind('<Button-1>', lambda event: self.old_password_toggle())
+        self.new_password_entry.winfo_children()[2].bind('<Button-1>', lambda event: self.new_password_toggle())
         self.change_pass_button.bind('<Return>', lambda event: self.change_pass_button_event())
+
+    def email_validation(self):
+        try:
+            self.change_pass.email = self.get_entry_data()[0]
+            self.email_error_label.configure(text='')
+            self.email_entry.winfo_children()[1].configure(image=check_icon)
+            return True
+        except ValueError as e:
+            self.email_error_label.configure(text=e)
+            self.email_entry.winfo_children()[1].configure(image=error_icon)
+            return False
+
+    def old_password_validation(self):
+        try:
+            self.change_pass.old_password = self.get_entry_data()[1]
+            self.old_pass_error_label.configure(text='')
+            self.old_password_entry.winfo_children()[1].configure(image=check_icon)
+            return True
+        except ValueError as e:
+            self.old_pass_error_label.configure(text=e)
+            self.old_password_entry.winfo_children()[1].configure(image=error_icon)
+            return False
+
+    def new_password_validation(self):
+        try:
+            self.change_pass.new_password = self.get_entry_data()[2]
+            self.new_pass_error_label.configure(text='')
+            self.new_password_entry.winfo_children()[1].configure(image=check_icon)
+            return True
+        except ValueError as e:
+            self.new_pass_error_label.configure(text=e)
+            self.new_password_entry.winfo_children()[1].configure(image=error_icon)
+            return False
 
     def old_password_toggle(self):
         self.old_show_password = password_toggle(self.old_password_entry, self.old_show_password)
@@ -385,7 +425,6 @@ class ChangePasswordFrame(ctk.CTkFrame):
         email = self.email_entry.winfo_children()[0].get().strip()
         old_password = self.old_password_entry.winfo_children()[0].get().strip()
         new_password = self.new_password_entry.winfo_children()[0].get().strip()
-
         return email, old_password, new_password
 
     def clear_entry(self):
@@ -397,9 +436,25 @@ class ChangePasswordFrame(ctk.CTkFrame):
         self.old_password_entry.winfo_children()[1].configure(image=password_icon)
         self.new_password_entry.winfo_children()[1].configure(image=password_icon)
 
+    def validations(self):
+        email_is_valid = self.email_validation()
+        old_pass_is_valid = self.old_password_validation()
+        new_pass_is_valid = self.new_password_validation()
+
+        if email_is_valid and old_pass_is_valid and new_pass_is_valid:
+            return self.change_pass
+
     def change_pass_button_event(self):
-        print(self.get_entry_data())
-        self.clear_entry()
+        creds = self.validations()
+        try:
+            if creds is not None:
+                change_password(creds)
+                self.clear_entry()
+                CTkMessagebox(title='Change Password', message='Password Changed Successfully', font=font_body_14)
+        except EmailNotFound as e:
+            CTkMessagebox(title='Change Password', message=str(e), icon='cancel', font=font_body_14)
+        except WrongPassword as e:
+            CTkMessagebox(title='Change Password', message=str(e), icon='cancel', font=font_body_14)
 
 
 class RegisterFrame(ctk.CTkFrame):
@@ -515,6 +570,8 @@ class RegisterFrame(ctk.CTkFrame):
             if creds is not None:
                 register_account(creds)
                 self.clear_entry()
+                CTkMessagebox(title='Account Registration', message='Account Registered Successfully',
+                              icon='info', font=font_body_14)
         except AccountExistsError as e:
             CTkMessagebox(title='Account Registration', message=str(e), icon='cancel', font=font_body_14)
 
