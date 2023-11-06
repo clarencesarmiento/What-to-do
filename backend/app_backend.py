@@ -22,8 +22,14 @@ def register_account(credential):
         if account_exist:
             raise AccountExistsError(credential.email)
         else:
-            cursor.execute('INSERT INTO accounts VALUES (?, ?, ?);',
+            cursor.execute('INSERT INTO accounts (fullname, email, password) VALUES (?, ?, ?);',
                            (credential.fullname, credential.email, credential.password))
+
+            cursor.execute('SELECT user_id FROM accounts WHERE email = ?;', (credential.email,))
+            user_id = cursor.fetchone()[0]
+
+            cursor.execute(f"""CREATE TABLE IF NOT EXISTS usertasks_{user_id}
+                            (task_name TEXT NOT NULL, status TEXT NOT NULL);""")
             conn.commit()
 
         cursor.close()
@@ -115,7 +121,7 @@ def signin_account(credentials):
             raise EmailNotFound(credentials.email)
 
         else:
-            password = str(account[2])
+            password = str(account[-1])
             if password != credentials.password:
                 raise WrongPassword
             else:
@@ -123,6 +129,44 @@ def signin_account(credentials):
 
     except conn.Error as e:
         print(f'SQLite Account Sign In Error: {e}')
+
+    finally:
+        del conn
+
+
+def change_password(credentials):
+    """
+        To fetch User account for Sign In.
+
+        :param credentials: Email, Password
+        :return account: Fullname, Email, Password
+        """
+
+    conn = None
+    try:
+        conn = connect_to_database()
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT * FROM accounts WHERE email = ?;', (credentials.email,))
+        account = cursor.fetchone()
+
+        if account is None:
+            raise EmailNotFound(credentials.email)
+
+        else:
+            password = str(account[-1])
+            if password != credentials.old_password:
+                raise WrongPassword
+            else:
+                cursor.execute('UPDATE accounts SET password = ? WHERE email = ? AND password = ?;',
+                               (credentials.new_password, credentials.email, credentials.old_password))
+                conn.commit()
+
+        cursor.close()
+        conn.close()
+
+    except conn.Error as e:
+        print(f'SQLite Change Passsword Error: {e}')
 
     finally:
         del conn

@@ -7,7 +7,10 @@ def connect_to_database():
         conn = sqlite3.connect('backend/AppDatabase.db')
         cursor = conn.cursor()
         cursor.execute("CREATE TABLE IF NOT EXISTS accounts "
-                       "(fullname TEXT NOT NULL, email TEXT NOT NULL, password TEXT NOT NULL);")
+                       "(user_id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                       "fullname TEXT NOT NULL, "
+                       "email TEXT NOT NULL, p"
+                       "assword TEXT NOT NULL);")
         cursor.close()
 
     except sqlite3.Error as e:
