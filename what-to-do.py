@@ -150,6 +150,7 @@ class App(ctk.CTk):
         self.geometry(f'{appWidth}x{appHeight}+{x}+{y}')
         self.resizable(False, False)
         self.title('What to do?')
+        self.iconbitmap('Assets/task.ico')
 
         self.bg_image = ctk.CTkImage(Image.open(os.path.join(asset_path, 'What to do.png')),
                                      size=(appWidth, 450))
