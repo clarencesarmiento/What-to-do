@@ -5,8 +5,9 @@ import os
 from CTkMessagebox import CTkMessagebox
 
 from backend.exceptions import *
-from backend.app_backend import register_account, get_name, signin_account, change_password
-from middleware.account import AccountRegistration, AccountSignIn, ChangePassword
+from backend.app_backend import register_account, get_name, signin_account, change_password, add_new_task, get_all_task, \
+    delete_task, update_status, update_count
+from middleware.account import AccountRegistration, AccountSignIn, ChangePassword, TaskCreation
 
 ctk.set_appearance_mode('system')
 ctk.set_default_color_theme('blue')
@@ -20,16 +21,21 @@ asset_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Assets')
 # Define Colors
 text_primary = '#1E1E1E'
 text_secondary = '#F5F5F5'
+text_tertiary = '#9DB2BF'
+text_error = '#F84B4B'
 button_default = '#0E89CB'
 button_secondary = '#E8E8E8'
 button_hover = '#08527A'
 button_secondary_hover = '#8B8B8B'
 widget_color = '#B5CBD7'
+todo_banner_color = '#D9BB41'
+done_banner_color = '#F7A173'
 
 # Define Font Styles
 font_heading = ('montserrat', 24, 'bold')
 font_subheading = ('montserrat', 16, 'bold')
 font_body_16 = ('montserrat', 16)
+font_body_16_overstrike = ('montserrat', 16, 'overstrike')
 font_body_14 = ('montserrat', 14)
 font_error = ('montserrat', 12)
 
@@ -51,15 +57,16 @@ email_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'email.png')),
 password_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'key.png')),
                              size=(20, 20))
 
+cross_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'cross.png')),
+                          size=(25, 25))
+delete_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'delete.png')),
+                           size=(20, 20))
+
 
 def create_button(master, text, command, width=140):
-    button = ctk.CTkButton(master, text=text, text_color=text_secondary, height=35, width=width,
+    button = ctk.CTkButton(master, text=text, text_color=text_secondary, height=35, width=width, cursor='hand2',
                            font=font_body_16, corner_radius=18, fg_color=button_default,
                            hover_color=button_hover, command=command)
-
-    # button.bind('<Enter>', lambda event: button_hover_event(button))
-    # button.bind('<Leave>', lambda event: button_default_event(button))
-    # button.bind('<Button-1>', lambda event: button_click_event(button, command))
 
     return button
 
@@ -70,20 +77,6 @@ def create_secondary_button(master, text, command, width=140):
                            hover_color=button_secondary_hover, command=command)
 
     return button
-
-
-def button_default_event(button):
-    button.configure(text_color=text_secondary, fg_color=button_default,
-                     border_width=0)
-
-
-def button_hover_event(button):
-    button.configure(text_color=button_hover, fg_color='transparent',
-                     border_width=1, border_color=button_hover)
-
-
-def button_click_event(button, command):
-    button.configure(text_color=text_secondary, fg_color=button_hover, command=command)
 
 
 def create_entry_widget(master, text, icon=None, valid_icon=None, show='', validate_command=None):
@@ -107,7 +100,7 @@ def create_entry_widget(master, text, icon=None, valid_icon=None, show='', valid
 
 
 def create_error_label(master):
-    error_label = ctk.CTkLabel(master, text='', text_color='#F84B4B', font=font_error)
+    error_label = ctk.CTkLabel(master, text='', text_color=text_error, font=font_error)
 
     return error_label
 
@@ -133,6 +126,18 @@ def have_account(master, label, text):
     text_label = ctk.CTkLabel(frame, text=text, text_color=button_hover,
                               font=font_subheading, cursor='hand2')
     text_label.grid(row=0, column=1, padx=(5, 20))
+
+    return frame
+
+
+def create_banner(master, banner_label, color):
+    frame = ctk.CTkFrame(master, fg_color=color, corner_radius=0,)
+
+    label = ctk.CTkLabel(frame, text=banner_label, text_color=text_secondary, font=font_body_16, width=30)
+    label.grid(row=0, column=0, padx=20, pady=5, sticky='nsew')
+
+    count = ctk.CTkLabel(frame, text='0', text_color=text_secondary, font=font_subheading, width=30)
+    count.grid(row=0, column=1, padx=10, pady=5, sticky='nsew')
 
     return frame
 
@@ -323,14 +328,18 @@ class SignInFrame(ctk.CTkFrame):
                 result = signin_account(creds)
                 self.clear_entry()
                 if result is not None:
-                    CTkMessagebox(title='Account Sign In', message='Sign In Successfully', icon='info',
-                                  font=font_body_14)
-                    task_table_name = f'usertasks_{result[0]}'
-                    print(task_table_name)
+                    response = CTkMessagebox(title='Account Sign In', message='Sign In Successfully', icon='info',
+                                             font=font_body_14)
+                    if response.get() == 'OK':
+                        task_table_name = f'usertasks_{result[0]}'
+                        task_frame = TaskFrame(self.master, task_table_name)
+                        task_frame.grid(row=0, column=0, columnspan=2, sticky='nsew')
             except EmailNotFound as e:
                 CTkMessagebox(title='Account Sign In', message=str(e), icon='cancel', font=font_body_14)
             except WrongPassword as e:
                 CTkMessagebox(title='Account Sign In', message=str(e), icon='cancel', font=font_body_14)
+
+        self.subheading_label.configure(text='Welcome Back, User !!')
 
 
 class ChangePasswordFrame(ctk.CTkFrame):
@@ -574,6 +583,181 @@ class RegisterFrame(ctk.CTkFrame):
                               icon='info', font=font_body_14)
         except AccountExistsError as e:
             CTkMessagebox(title='Account Registration', message=str(e), icon='cancel', font=font_body_14)
+
+
+class TaskFrame(ctk.CTkFrame):
+    def __init__(self, master, table_name, **kwargs):
+        super().__init__(master, **kwargs)
+        self.configure(fg_color='transparent', corner_radius=0)
+        self.table_name = table_name
+        self.toplevel_window = None
+        self.frame_list = []
+
+        # Configure frame grid layout
+        self.columnconfigure(0, weight=1, uniform='a')
+        self.columnconfigure(1, weight=1, uniform='a')
+        self.rowconfigure(3, weight=1)
+
+        self.header_frame = ctk.CTkFrame(self, fg_color=button_hover, corner_radius=0)
+        self.header_frame.grid(row=0, column=0, columnspan=2, sticky='nsew')
+        self.header_frame.columnconfigure(0, weight=1)
+
+        self.title_label = ctk.CTkLabel(self.header_frame, text='What to do?', text_color=text_secondary,
+                                        font=font_heading)
+        self.title_label.grid(row=0, column=0, padx=20, pady=15, sticky='w')
+
+        self.sign_out_label = ctk.CTkLabel(self.header_frame, text='Sign out', text_color=text_secondary,
+                                           font=font_body_16, cursor='hand2')
+        self.sign_out_label.grid(row=0, column=0, padx=20, pady=15, sticky='e')
+
+        self.todo_banner = create_banner(self, banner_label='To Do', color=todo_banner_color)
+        self.todo_banner.grid(row=1, column=0, padx=(20, 0), pady=(40, 0), sticky='e')
+
+        self.done_banner = create_banner(self, banner_label='Done', color=done_banner_color)
+        self.done_banner.grid(row=1, column=1, padx=20, pady=(40, 0), sticky='w')
+
+        self.new_task_button = create_button(self, text='New Task', command=self.new_task_button_event, width=100)
+        self.new_task_button.grid(row=2, column=1, padx=60, pady=(20, 0), sticky='e')
+
+        self.task_scrollable_frame = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color='transparent')
+        self.task_scrollable_frame.grid(row=3, column=0, columnspan=2, pady=10, sticky='nsew')
+        self.task_scrollable_frame.columnconfigure(0, weight=1)
+
+        self.sign_out_label.bind('<Button-1>', lambda event: self.destroy())
+
+        self.add_task()
+
+    def new_task_button_event(self):
+        if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
+            self.toplevel_window = AddTaskWindow(self, table_name=self.table_name, add_task=self.add_task)
+            self.toplevel_window.attributes('-topmost', True)
+        else:
+            self.toplevel_window.focus()
+
+    def add_task(self):
+        self.frame_list.clear()
+
+        for widget in self.task_scrollable_frame.winfo_children():
+            widget.destroy()
+
+        all_available_task = get_all_task(table_name=self.table_name, )
+        for task in all_available_task:
+            self.add_task_frame(task[0], task[1])
+
+    def add_task_frame(self, task_name, task_status):
+        task_var = StringVar(value=task_status)
+        frame = ctk.CTkFrame(self.task_scrollable_frame, fg_color=widget_color)
+        frame.columnconfigure(0, weight=1)
+        frame.grid(row=len(self.frame_list), column=0, padx=40, pady=(0, 10), sticky='ew')
+
+        task = ctk.CTkCheckBox(frame, text=task_name, text_color=text_primary, font=font_body_16,
+                               variable=task_var, onvalue='Done', offvalue='To Do',
+                               command=lambda: self.checkbox_event(task))
+        task.grid(row=0, column=0, padx=10, pady=10, sticky='w')
+
+        delete_button = ctk.CTkLabel(frame, text='', image=delete_icon, cursor='hand2')
+        delete_button.grid(row=0, column=1, padx=20, )
+
+        if task_var.get() == 'Done':
+            task.configure(font=font_body_16_overstrike, text_color=text_tertiary)
+        else:
+            pass
+
+        # Event Binding
+        delete_button.bind('<Button-1>', lambda event: self.delete_button_event(frame))
+        self.frame_list.append({'frame': frame, 'task': task})
+        self.update_scrollable_frame()
+
+    def delete_button_event(self, item_frame):
+        for frame in self.frame_list:
+            if frame['frame'] == item_frame:
+                delete_task(table_name=self.table_name, task=frame['task'].cget('text'))
+                item_frame.destroy()
+                self.frame_list.remove(frame)
+                self.update_scrollable_frame()
+
+                break
+
+    def checkbox_event(self, widget):
+        for frame in self.frame_list:
+            if frame['task'] == widget and frame['task'].get() == 'Done':
+                frame['task'].configure(font=font_body_16_overstrike, text_color=text_tertiary)
+                update_status(table_name=self.table_name, status=frame['task'].get(),
+                              task=frame['task'].cget('text'))
+                break
+            elif frame['task'] == widget and frame['task'].get() == 'To Do':
+                frame['task'].configure(font=font_body_16, text_color=text_primary)
+                update_status(table_name=self.table_name, status=frame['task'].get(),
+                              task=frame['task'].cget('text'))
+                break
+        self.update_banner()
+
+    def update_scrollable_frame(self):
+        for i, frame in enumerate(reversed(self.frame_list)):
+            frame['frame'].grid(row=i, column=0, padx=40, pady=(0, 10), sticky='ew')
+        self.update_banner()
+
+    def update_banner(self):
+        todo_count, done_count = update_count(table_name=self.table_name)
+        self.todo_banner.winfo_children()[1].configure(text=todo_count)
+        self.done_banner.winfo_children()[1].configure(text=done_count)
+
+
+class AddTaskWindow(ctk.CTkToplevel):
+    def __init__(self, master, table_name, add_task, **kwargs):
+        super().__init__(master, **kwargs)
+
+        self.task_obj = TaskCreation()
+        self.table_name = table_name
+        self.add_task = add_task
+
+        toplevel_width = 500
+        toplevel_height = 350
+
+        main_window_width = master.winfo_width()
+        main_window_height = master.winfo_height()
+
+        x = (main_window_width - toplevel_width) // 2
+        y = (main_window_height - toplevel_height) // 2
+
+        self.geometry(f'{toplevel_width}x{toplevel_height}+{x}+{y}')
+        self.resizable(False, False)
+        self.configure(fg_color='#FFFFFF', borderwidth=2, relief=SOLID)
+        self.overrideredirect(True)
+
+        # Configure window grid layout
+        self.columnconfigure(0, weight=1, uniform='a')
+        self.columnconfigure(1, weight=1, uniform='a')
+
+        self.bg_image = ctk.CTkImage(Image.open(os.path.join(asset_path, 'Add notes-pana.png')),
+                                     size=(250, 250))
+        self.bg_image_label = ctk.CTkLabel(self, text='', image=self.bg_image)
+        self.bg_image_label.grid(row=0, column=0, columnspan=2, pady=(10, 0), sticky='nsew')
+
+        self.close = ctk.CTkLabel(self, text='', image=cross_icon, cursor='hand2')
+        self.close.grid(row=0, column=1, padx=10, pady=(10, 0), sticky='ne')
+
+        self.task_entry = create_entry_widget(self, text='Create Task', )
+        self.task_entry.grid(row=1, column=0, columnspan=2, padx=50, pady=(0, 5), sticky='nsew')
+
+        self.save_button = create_button(self, text='Save', command=self.save_button_event, width=100)
+        self.save_button.grid(row=2, column=0, columnspan=2, pady=5)
+
+        # Event Binding
+        self.close.bind('<Button-1>', lambda event: self.close_window())
+        self.task_entry.bind('<Return>', lambda event: self.save_button_event())
+
+    def close_window(self):
+        self.destroy()
+
+    def save_button_event(self):
+        try:
+            self.task_obj.task = self.task_entry.winfo_children()[0].get().capitalize()
+            add_new_task(table_name=self.table_name, task=self.task_obj.task)
+            self.add_task()
+            self.destroy()
+        except ValueError:
+            pass
 
 
 if __name__ == '__main__':
