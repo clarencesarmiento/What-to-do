@@ -242,10 +242,17 @@ class ChangePassword:
         self._new_password = salt + '$' + hashed_password
 
 
-if __name__ == '__main__':
-    obj = AccountRegistration()
-    obj.fullname = 'John Doe'
-    obj.email = 'johndoe@gmail.com'
-    obj.password = 'Johndoe@122'
+class TaskCreation:
+    def __init__(self):
+        self._task = None
 
-    print(f'Fullname: {obj.fullname}, Email: {obj.email}, Password: {obj.password}')
+    @property
+    def task(self) -> str:
+        return self._task
+
+    @task.setter
+    def task(self, task):
+        if task is None or task == '':
+            raise ValueError
+
+        self._task = task

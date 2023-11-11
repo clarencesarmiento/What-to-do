@@ -162,11 +162,162 @@ def change_password(credentials):
                                (credentials.new_password, credentials.email, credentials.old_password))
                 conn.commit()
 
-        cursor.close()
-        conn.close()
-
     except conn.Error as e:
         print(f'SQLite Change Passsword Error: {e}')
 
+    else:
+        cursor.close()
+        conn.close()
+
     finally:
         del conn
+
+
+def get_all_task(table_name):
+    """
+        To get all available task.
+
+    :param table_name: User's table name.
+    :return result: User's all available task.
+    """
+
+    conn = None
+    result = None
+    try:
+        conn = connect_to_database()
+        cursor = conn.cursor()
+        cursor.execute(f'SELECT * FROM {table_name};')
+        result = cursor.fetchall()
+        conn.commit()
+
+    except conn.Error as e:
+        print(f'SQLite Fetch Task Error: {e}')
+
+    else:
+        cursor.close()
+        conn.close()
+
+    finally:
+        del conn
+        return result
+
+
+def add_new_task(table_name, task, status='To Do'):
+    """
+        Function to add new task in the user's table.
+
+    :param table_name: User's table name.
+    :param task: User's new task.
+    :param status: Default task status.
+    :return:
+    """
+
+    conn = None
+    try:
+        conn = connect_to_database()
+        cursor = conn.cursor()
+        cursor.execute(f'SELECT * FROM {table_name} WHERE task_name = ?;', (task,))
+        task_exist = cursor.fetchone()
+
+        if task_exist is None:
+            cursor.execute(f'INSERT INTO {table_name} VALUES (?, ?);', (task, status))
+            conn.commit()
+        else:
+            pass
+
+    except conn.Error as e:
+        print(f'SQLite Add New Task Error: {e}')
+
+    else:
+        cursor.close()
+        conn.close()
+
+    finally:
+        del conn
+
+
+def delete_task(table_name, task):
+    """
+        Function to delete user task.
+
+    :param table_name: User's table name.
+    :param task: User's task to delete.
+    :return:
+    """
+
+    conn = None
+    try:
+        conn = connect_to_database()
+        cursor = conn.cursor()
+        cursor.execute(f'DELETE FROM {table_name} WHERE task_name = ?;', (task,))
+        conn.commit()
+
+    except conn.Error as e:
+        print(f'SQLite Delete Task Error: {e}')
+
+    else:
+        cursor.close()
+        conn.close()
+
+    finally:
+        del conn
+
+
+def update_status(table_name, task, status):
+    """
+        Function to update task status.
+
+    :param table_name: User's table name.
+    :param task: User's task to update status.
+    :param status: New status of the task.
+    :return:
+    """
+
+    conn = None
+    try:
+        conn = connect_to_database()
+        cursor = conn.cursor()
+        cursor.execute(f'UPDATE {table_name} SET status = ? WHERE task_name = ?;', (status, task))
+        conn.commit()
+
+    except conn.Error as e:
+        print(f'SQLite Updating Task Status Error: {e}')
+
+    else:
+        cursor.close()
+        conn.close()
+
+    finally:
+        del conn
+
+
+def update_count(table_name):
+    """
+        Function to fetch the count of the To Do and Done task.
+
+    :param table_name: User's table name.
+    :return: To Do count and Done count
+    """
+
+    conn = None
+    todo_count = None
+    done_count = None
+    try:
+        conn = connect_to_database()
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT COUNT(*) FROM {table_name} WHERE status = 'To Do';")
+        todo_count = cursor.fetchone()
+
+        cursor.execute(f"SELECT COUNT(*) FROM {table_name} WHERE status = 'Done';")
+        done_count = cursor.fetchone()
+
+    except conn.Error as e:
+        print(f'SQLite Fetch Task Count Error: {e}')
+
+    else:
+        cursor.close()
+        conn.close()
+
+    finally:
+        del conn
+        return todo_count, done_count
