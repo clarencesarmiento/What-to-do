@@ -1,6 +1,6 @@
 
 # What to do?
-[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://choosealicense.com/licenses/mit/)
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/clarencesarmiento/What-to-do/blob/a28a4c842986077967b83a68f47d18c1a282856f/LICENSE.md)
 
 A basic to-do list Desktop Application.
 
