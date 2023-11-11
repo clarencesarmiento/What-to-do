@@ -4,6 +4,9 @@
 
 A basic to-do list Desktop Application.
 
+## Screenshots
+
+![App Screenshot](https://github.com/clarencesarmiento/What-to-do/blob/0f4569da51bd802e869a795965c3548c7a68ca2f/Images/what-to-do_interface.png)
 
 ## Features
 
