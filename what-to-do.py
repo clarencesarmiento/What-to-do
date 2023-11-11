@@ -57,8 +57,6 @@ email_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'email.png')),
 password_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'key.png')),
                              size=(20, 20))
 
-cross_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'cross.png')),
-                          size=(25, 25))
 delete_icon = ctk.CTkImage(Image.open(os.path.join(asset_path, 'delete.png')),
                            size=(20, 20))
 
@@ -722,33 +720,26 @@ class AddTaskWindow(ctk.CTkToplevel):
 
         self.geometry(f'{toplevel_width}x{toplevel_height}+{x}+{y}')
         self.resizable(False, False)
+        self.title('Task Window')
         self.configure(fg_color='#FFFFFF', borderwidth=2, relief=SOLID)
-        self.overrideredirect(True)
+        # self.overrideredirect(True)
 
         # Configure window grid layout
-        self.columnconfigure(0, weight=1, uniform='a')
-        self.columnconfigure(1, weight=1, uniform='a')
+        self.columnconfigure(0, weight=1,)
 
         self.bg_image = ctk.CTkImage(Image.open(os.path.join(asset_path, 'Add notes-pana.png')),
                                      size=(250, 250))
         self.bg_image_label = ctk.CTkLabel(self, text='', image=self.bg_image)
-        self.bg_image_label.grid(row=0, column=0, columnspan=2, pady=(10, 0), sticky='nsew')
-
-        self.close = ctk.CTkLabel(self, text='', image=cross_icon, cursor='hand2')
-        self.close.grid(row=0, column=1, padx=10, pady=(10, 0), sticky='ne')
+        self.bg_image_label.grid(row=0, column=0, pady=(10, 0), sticky='nsew')
 
         self.task_entry = create_entry_widget(self, text='Create Task', )
-        self.task_entry.grid(row=1, column=0, columnspan=2, padx=50, pady=(0, 5), sticky='nsew')
+        self.task_entry.grid(row=1, column=0, padx=50, pady=(0, 5), sticky='nsew')
 
         self.save_button = create_button(self, text='Save', command=self.save_button_event, width=100)
-        self.save_button.grid(row=2, column=0, columnspan=2, pady=5)
+        self.save_button.grid(row=2, column=0, pady=5)
 
         # Event Binding
-        self.close.bind('<Button-1>', lambda event: self.close_window())
         self.task_entry.bind('<Return>', lambda event: self.save_button_event())
-
-    def close_window(self):
-        self.destroy()
 
     def save_button_event(self):
         try:
